@@ -4,12 +4,14 @@
 ## Generating and running Temporal Logic Programs
 Available at `aspT/src/temporal`. 
 
-Example call for the Yale Shooting Scenario:
+Example call for solving incrementally the Yale Shooting Scenario:
 ```bash
 $ python temporal.py 
+Step: 1
 UNSATISFIABLE
+Step: 2
 UNSATISFIABLE
-Answer: 1
+Step: 3
 1:occ(wait) 2:occ(load) 3:occ(shoot)
 SATISFIABLE
 ```
