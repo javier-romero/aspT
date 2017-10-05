@@ -1,2 +1,2 @@
-# tclingo
-Temporal clingo
+# aspT
+ASP with Time
