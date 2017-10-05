@@ -2,7 +2,7 @@
 
 from __future__ import print_function
 import clingo
-import tclingo
+import temporal
 import sys
 from time import clock
 
