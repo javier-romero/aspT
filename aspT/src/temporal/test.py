@@ -17,9 +17,9 @@ def main():
         #adds  = [("base", [], base)],
         parts = [("base", [])],
         #options = ["0"],
+        #compute_cautious = False,
+        #compute_brave = False,
     )
-    #generator.no_cautious()
-    #generator.no_brave()
 
     # start
     dlp = generator.run()

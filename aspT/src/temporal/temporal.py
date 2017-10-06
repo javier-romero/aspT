@@ -266,22 +266,20 @@ SAtom  = namedtuple('SAtom',
 
 class DLPGeneratorSimplifier(DLPGenerator):
 
-    def __init__(self, files = [], adds = [], parts = [], options = []):
+    def __init__(
+        self, files = [], adds = [], parts = [], options = [],
+        compute_cautious=True, compute_brave=True):
+        # input
         DLPGenerator.__init__(self, files, adds, parts, options)
+        self.compute_cautious = compute_cautious
+        self.compute_brave = compute_brave
+        # rest
         self.satoms = []
         self.true = []
         self.false = []
         self.cautious = []
         self.add_constraints = []
-        self.compute_cautious = True
-        self.compute_brave = True
         self.solve_for_output = False
-
-    def no_cautious(self):
-        self.compute_cautious = False
-
-    def no_brave(self):
-        self.compute_brave = False
 
     def simplify(self):
         self.mapping = [None]*len(self.satoms)
@@ -762,17 +760,17 @@ class DynamicLogicProgram:
 def incmode():
 
     # preprocessing
-    generator_class = DLPGenerator
-    #generator_class = DLPGeneratorSimplifier
+    #generator_class = DLPGenerator
+    generator_class = DLPGeneratorSimplifier
     generator = generator_class(
         files = ["example.lp"],
         #files = ["myexample.lp"],
         # adds  = [("base", [], base)],
         parts = [("base", [])],
         options = sys.argv[1:],
+        #compute_cautious = False,
+        #compute_brave = False
     )
-    #generator.no_cautious()
-    #generator.no_brave()
 
     # start
     dlp = generator.run()
