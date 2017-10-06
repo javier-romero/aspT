@@ -524,11 +524,11 @@ class DLPGeneratorSimplifier(DLPGenerator):
             if not next_literal or next_mapping == FALSE:
                 number += 1
                 self.mapping[literal] = number
-                self.add_constraints.append((number + self.offset, False))
+                self.add_constraints.append( number + self.offset)
             elif next_mapping == TRUE:
                 number += 1
                 self.mapping[literal] = number
-                self.add_constraints.append((number + self.offset, True))
+                self.add_constraints.append(-number - self.offset)
             else:
                 self.mapping[literal] = next_mapping - self.offset
         assert number == self.offset
@@ -540,7 +540,7 @@ class DLPGeneratorSimplifier(DLPGenerator):
             (False, [], [-self.mapping[i]]) for i in self.cautious
                 if self.mapping[i] != TRUE
         ] + [
-            (False, [], [(-1 if v else 1)*i]) for i, v in self.add_constraints
+            (False, [], [i]) for i in self.add_constraints
         ]
 
     def map_weight_rules(self):
