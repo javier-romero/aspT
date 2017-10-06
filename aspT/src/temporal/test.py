@@ -6,15 +6,12 @@ import temporal
 import sys
 from time import clock
 
-log = tclingo.log
-
 def main():
 
     # preprocessing
-    time0 = clock()
-    generator_class = tclingo.DLPGenerator
+    generator_class = temporal.DLPGenerator
     if len(sys.argv)>=2 and sys.argv[1] == "simple":
-        generator_class = tclingo.DLPGeneratorSimplifier
+        generator_class = temporal.DLPGeneratorSimplifier
     generator = generator_class(
         files = ["test.lp"],
         #adds  = [("base", [], base)],
@@ -26,8 +23,6 @@ def main():
 
     # start
     dlp = generator.run()
-    log("generate:\t {:.2f}s".format(clock()-time0))
-    time0 = clock()
     #print(generator)
     ctl = clingo.Control(["0"])
     dlp.start(ctl)
@@ -40,8 +35,6 @@ def main():
     for i in range(1,steps):
         dlp.release_external(i, clingo.parse_term("last"))
     dlp.assign_external(steps, clingo.parse_term("last"), True)
-    log("ground:\t {:.2f}s".format(clock()-time0))
-    time0 = clock()
 
     # solve
     with ctl.solve(
@@ -56,12 +49,6 @@ def main():
             print(" ".join(["{}:{}".format(x,y) for x,y in answer]))
         if not answers:
             print("UNSATISFIABLE")
-
-    # log
-    log("RULES = {}, WRULES = {}".format(
-        len(dlp.rules), len(dlp.weight_rules))
-    )
-    log("solve:\t {:.2f}s".format(clock()-time0))
 
 if __name__ == "__main__":
     main()

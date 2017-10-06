@@ -5,6 +5,7 @@ import clingo
 import sys
 from collections import namedtuple
 from time import clock
+from math import copysign
 
 # DEFINES
 STR_UNSAT = "error: input program is UNSAT"
@@ -21,7 +22,7 @@ FITTING_FALSE    = 2
 FITTING_CAUTIOUS = 3
 
 # log
-log_level = 0
+log_level = 1
 def log(*args):
     if log_level == 1:
         print(*args)
@@ -66,7 +67,6 @@ class DLPGenerator:
 
     def run(self):
         # preliminaries
-        time0 = clock()
         ctl = self.ctl = clingo.Control(self.options)
         ctl.register_observer(self)
         for i in self.files:
@@ -77,11 +77,7 @@ class DLPGenerator:
         #print(self)
         # analyze
         self.set_externals()
-        log("preliminaries:\t {:.2f}s".format(clock()-time0))
-        time0 = clock()
         self.simplify()
-        log("simplify:\t {:.2f}s".format(clock()-time0))
-        time0 = clock()
         self.set_next()
         self.set_mapping()
         self.map_rules()
@@ -89,7 +85,6 @@ class DLPGenerator:
         self.handle_externals()
         self.set_output()
         self.set_init()
-        log("rest:\t {:.2f}s".format(clock()-time0))
         # return
         return DynamicLogicProgram(
             self.offset, self.rules, self.weight_rules,
@@ -125,25 +120,26 @@ class DLPGenerator:
         for i in range(1, self.offset + 1):
             self.mapping[i] = self.next.get(i, i + self.offset)
 
+    def map_rule(self, rule):
+        head = [self.mapping[atom] for atom in rule[1]]
+        body = [copysign(self.mapping[abs(atom)], atom) for atom in rule[2]]
+        return (rule[0], head, body)
+
     def map_rules(self):
-        for rule in self.rules:
-            for i, atom in enumerate(rule[1]):
-                rule[1][i] = self.mapping[atom]
-            for i, atom in enumerate(rule[2]):
-                if atom>0:
-                    rule[2][i] = self.mapping[atom]
-                else:
-                    rule[2][i] = -self.mapping[-atom]
+        self.rules = [self.map_rule(rule) for rule in self.rules]
+
+    def map_weight_rule(self, rule, simplify=False):
+        head = [self.mapping[atom] for atom in rule[1]]
+        body = [(copysign(self.mapping[abs(a)], a), w) for a, w in rule[3]]
+        if not simplify:
+            return (rule[0], head, rule[2], body)
+        else:
+            return (rule[0], head, rule[2][0], body)
 
     def map_weight_rules(self):
-        for rule in self.weight_rules:
-            for i, atom in enumerate(rule[1]):
-                rule[1][i] = self.mapping[atom]
-            for i, atom in enumerate(rule[3]):
-                if atom[0]>0:
-                    rule[3][i] = (self.mapping[atom[0]], atom[1])
-                else:
-                    rule[3][i] = (-self.mapping[-atom[0]], atom[1])
+        self.weight_rules = [
+            self.map_weight_rule(rule) for rule in self.weight_rules
+        ]
 
     def handle_externals(self):
         for symbol, literal in self.primed_externals.items():
@@ -290,17 +286,11 @@ class DLPGeneratorSimplifier(DLPGenerator):
     def simplify(self):
         self.mapping = [None]*len(self.satoms)
         self.offset = len(self.satoms) - 1
-        time0 = clock()
         if self.compute_brave:
             self.false += self.get_consequences("brave", False)
-        log("\tbrave:\t\t {:.2f}s".format(clock()-time0))
-        time0 = clock()
         if self.compute_cautious:
             self.cautious += self.get_consequences("cautious", True)
-        log("\tcautious:\t {:.2f}s".format(clock()-time0))
-        time0 = clock()
         self.fitting()
-        log("\tfitting:\t {:.2f}s".format(clock()-time0))
         if not self.compute_brave and not self.compute_cautious:
             self.solve_for_output = True
 
@@ -342,6 +332,8 @@ class DLPGeneratorSimplifier(DLPGenerator):
     def fitting(self):
         tmp_cautious = self.cautious
         self.cautious = set()
+        # preprocess true facts
+        self.true = [x for x in self.true if self.satoms[x] is not None]
         while True:
             # preprocessing
             if len(self.true):
@@ -544,47 +536,20 @@ class DLPGeneratorSimplifier(DLPGenerator):
         assert number == self.offset
 
     def map_rules(self):
-        idx = 0
-        for rule in self.rules:
-            if rule is None:
-                continue
-            rule = self.rules[idx] = (rule[0], list(rule[1]), list(rule[2]))
-            idx += 1
-            for i, atom in enumerate(rule[1]):
-                rule[1][i] = self.mapping[atom]
-            for i, atom in enumerate(rule[2]):
-                if atom > 0:
-                    rule[2][i] = self.mapping[atom]
-                else:
-                    rule[2][i] = -self.mapping[-atom]
-        self.rules = self.rules[0:idx]
-        # cautious and add_constraints
-        for i in self.cautious:
-            if self.mapping[i] != TRUE:
-                self.rules.append((False, [], [-self.mapping[i]]))
-        for i, value in self.add_constraints:
-            if value:
-                self.rules.append((False, [], [-i]))
-            else:
-                self.rules.append((False, [], [ i]))
+        self.rules = [
+            self.map_rule(rule) for rule in self.rules if rule is not None
+        ] + [
+            (False, [], [-self.mapping[i]]) for i in self.cautious
+                if self.mapping[i] != TRUE
+        ] + [
+            (False, [], [(-1 if v else 1)*i]) for i, v in self.add_constraints
+        ]
 
     def map_weight_rules(self):
-        idx = 0
-        for rule in self.weight_rules:
-            if rule is None:
-                continue
-            rule = self.weight_rules[idx] = (
-                rule[0], list(rule[1]), rule[2][0], list(rule[3])
-            )
-            idx += 1
-            for i, atom in enumerate(rule[1]):
-                rule[1][i] = self.mapping[atom]
-            for i, atom in enumerate(rule[3]):
-                if atom[0] > 0:
-                    rule[3][i] = (self.mapping[atom[0]], atom[1])
-                else:
-                    rule[3][i] = (-self.mapping[-atom[0]], atom[1])
-        self.weight_rules = self.weight_rules[0:idx]
+        self.weight_rules = [
+            self.map_weight_rule(rule, True) for rule in self.weight_rules
+                if rule is not None
+        ]
 
     #
     # observer
@@ -801,6 +766,7 @@ def incmode():
     #generator_class = DLPGeneratorSimplifier
     generator = generator_class(
         files = ["example.lp"],
+        #files = ["myexample.lp"],
         # adds  = [("base", [], base)],
         parts = [("base", [])],
         options = sys.argv[1:],
@@ -823,11 +789,11 @@ def incmode():
             assumptions = dlp.get_assumptions(), yield_ = True
         ) as handle:
             for m in handle:
-                print("Answer: 1\n{}\nSATISFIABLE".format(" ".join(
+                print("Step: {}\n{}\nSATISFIABLE".format(step, " ".join(
                     ["{}:{}".format(x,y) for x,y in dlp.get_answer(m, step)]
                 )))
                 return
-            print("UNSATISFIABLE")
+            print("Step: {}\nUNSATISFIABLE".format(step))
         step += 1
 
 if __name__ == "__main__":
