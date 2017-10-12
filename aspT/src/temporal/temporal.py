@@ -122,7 +122,9 @@ class DLPGenerator:
 
     def map_rule(self, rule):
         head = [self.mapping[atom] for atom in rule[1]]
-        body = [copysign(self.mapping[abs(atom)], atom) for atom in rule[2]]
+        body = [
+            int(copysign(self.mapping[abs(atom)], atom)) for atom in rule[2]
+        ]
         return (rule[0], head, body)
 
     def map_rules(self):
@@ -130,7 +132,7 @@ class DLPGenerator:
 
     def map_weight_rule(self, rule, simplify=False):
         head = [self.mapping[atom] for atom in rule[1]]
-        body = [(copysign(self.mapping[abs(a)], a), w) for a, w in rule[3]]
+        body = [(int(copysign(self.mapping[abs(a)], a)), w) for a, w in rule[3]]
         if not simplify:
             return (rule[0], head, rule[2], body)
         else:
@@ -328,9 +330,9 @@ class DLPGeneratorSimplifier(DLPGenerator):
             tmp_cautious.append(-literal)
 
     def fitting(self):
-        tmp_cautious = self.cautious
+        # preprocess true facts and cautious
+        tmp_cautious = [x for x in self.cautious if self.satoms[x] is not None]
         self.cautious = set()
-        # preprocess true facts
         self.true = [x for x in self.true if self.satoms[x] is not None]
         while True:
             # preprocessing
@@ -776,6 +778,7 @@ def incmode():
     dlp = generator.run()
     ctl = clingo.Control()
     dlp.start(ctl)
+    #print(dlp); return
 
     # loop
     step, ret = 1, None
