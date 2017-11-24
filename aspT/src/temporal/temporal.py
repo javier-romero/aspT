@@ -697,7 +697,7 @@ class DynamicLogicProgram:
         return out
 
     def get_assumptions(self):
-        return [(self.normal_externals[key[1]]+(self.offset*key[0])*value)
+        return [(self.normal_externals[key[1]]+(self.offset*key[0]))*value
                 for key, value in self.assigned_externals.items()]
 
     def __str__(self):
